@@ -1,63 +1,122 @@
-# ⚡ Xenon
+# Xenon
 
-**Xenon** is an ultra-high-performance, open-source engine for real-time X (Twitter) data extraction, monitoring, and AI agent integration. Built for developers who need raw speed without the overhead of proprietary platforms.
+Xenon is a Rust CLI and service skeleton for real-time X monitoring workflows. This repository now contains a working executable with:
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
-[![Rust](https://img.shields.io/badge/language-Rust-orange)](#)
+- an HTTP API
+- an MCP-compatible stdio mode
+- a streaming monitor command
+- a terminal dashboard
+- a deterministic giveaway picker
+- analytics and export tooling
+- webhook signing and verification helpers
+- runtime config inspection
 
-## 🚀 Why Xenon?
+The monitor pipeline now uses the live X API v2 recent-search endpoint. You must provide a bearer token before `serve`, `monitor`, or `dashboard` can fetch events.
 
-Current solutions are either closed-source, expensive, or slow. **Xenon** provides a direct, low-latency bridge to the X global stream, optimized for:
-
-- **AI Agents:** Full [MCP (Model Context Protocol)](https://modelcontextprotocol.io) support for Cursor, Claude, and custom LLM workflows.
-- **Real-time Monitoring:** HMAC-signed webhooks for instant notifications on tweets, follows, or trends.
-- **Bulk Extraction:** High-throughput scraping of profiles, followers, and engagement metrics.
-- **Privacy First:** No middleman. You own your data and your API keys.
-
-## 🛠 Features
-
-- **TUI Dashboard:** A retro-inspired terminal interface for managing monitors and viewing live streams.
-- **Scalable Architecture:** Built in Rust for maximum concurrency and minimal memory footprint.
-- **Unified API:** REST endpoints that simplify complex X v2 API interactions.
-- **Advanced Draw Engine:** Automated, verifiable giveaway and contest picker.
-- **Zero-Dependency Core:** No React/Next.js bloat. Just pure, compiled performance.
-
-## 📦 Installation
+## Environment
 
 ```bash
-# Clone the repository
-git clone [https://github.com/makalin/xenon.git](https://github.com/makalin/xenon.git)
-
-# Build the project
-cd xenon
-cargo build --release
+export X_BEARER_TOKEN=your_token_here
 ```
 
-## 🖥 Usage
+Optional overrides:
 
-### Starting the MCP Server
-Integrate Xenon directly into your AI development environment:
 ```bash
-./xenon serve --mcp
+export XENON_X_BEARER_TOKEN=your_token_here
+export XENON_X_API_BASE_URL=https://api.x.com/2
+export XENON_REQUEST_TIMEOUT_SECONDS=15
+export XENON_WEBHOOK_SECRET=supersecret
 ```
 
-### Monitoring a Profile
+## Build
+
 ```bash
-./xenon monitor @username --events tweets,replies
+cargo build
 ```
 
-## 🗺 Roadmap
+## Run
 
-- [ ] Support for Space & Community metadata.
-- [ ] Export to CSV/JSONL/Markdown.
-- [ ] Distributed proxy rotation for bulk extraction.
-- [ ] Plugin system for custom data processors.
+Start the HTTP API:
 
-## 🤝 Contributing
+```bash
+cargo run -- serve
+```
 
-This is an open-source project by **Mehmet T. AKALIN**. We welcome contributions from the community! Feel free to check the [Issues](https://github.com/makalin/xenon/issues) page.
+Start MCP stdio mode:
 
----
+```bash
+cargo run -- serve --mcp
+```
 
-**Digital Vision** | [Website](https://dv.com.tr) | [GitHub](https://github.com/makalin)
+Monitor a handle:
+
+```bash
+cargo run -- monitor @username --events tweets,replies --limit 5
+```
+
+Export recent events:
+
+```bash
+cargo run -- export @username --events tweets,replies --limit 20 --format markdown --output report.md
+```
+
+Analyze a profile:
+
+```bash
+cargo run -- analyze @username --events tweets,replies --limit 20
+```
+
+Launch the dashboard:
+
+```bash
+cargo run -- dashboard --handle @username
+```
+
+Pick giveaway winners from a newline-delimited file:
+
+```bash
+cargo run -- draw data/entrants.txt --count 2
+```
+
+Inspect runtime config:
+
+```bash
+cargo run -- config --json
+```
+
+Sign and verify webhook payloads:
+
+```bash
+cargo run -- webhook sign '{"event":"ping"}' --secret supersecret
+cargo run -- webhook verify '{"event":"ping"}' <signature> --secret supersecret
+```
+
+## API
+
+- `GET /health`
+- `GET /api/v1/config`
+- `POST /api/v1/monitors`
+- `POST /api/v1/events`
+- `POST /api/v1/analyze`
+- `POST /api/v1/export`
+- `POST /api/v1/webhook/sign`
+- `POST /api/v1/webhook/verify`
+
+Example body:
+
+```json
+{
+  "handle": "@xenon",
+  "kinds": ["tweet", "reply"],
+  "limit": 5
+}
+```
+
+## Notes
+
+- `serve --mcp` accepts newline-delimited JSON-RPC requests over stdio.
+- `tweet` maps to `from:<username> -is:reply -is:retweet`.
+- `reply` maps to `from:<username> is:reply`.
+- `follow` and `trend` are rejected because they are not exposed through the bearer-token X v2 endpoints used here.
+- Export formats supported: `json`, `jsonl`, `csv`, `markdown`.
+- Webhook utilities use `hmac-sha256`.
